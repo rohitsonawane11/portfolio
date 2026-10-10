@@ -219,3 +219,117 @@ test("reduced motion disables smooth scrolling and page keyboard scrolling remai
     .poll(() => page.evaluate(() => window.scrollY))
     .toBeGreaterThan(0);
 });
+
+test("reduced motion holds a still pose instead of looping the walk cycle", async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Start exploring" }).click();
+  const canvas = page.locator("canvas");
+  await expect(canvas).toHaveAttribute("data-grounded", "true");
+  await expect(canvas).toHaveAttribute("data-frame", "0");
+  await page.keyboard.down("ArrowRight");
+  // Moving, but the decorative run cycle stays parked on the standing frame.
+  await expect
+    .poll(async () => Number(await canvas.getAttribute("data-player-x")))
+    .toBeGreaterThan(300);
+  await expect(canvas).toHaveAttribute("data-frame", "0");
+  // The jump pose still plays: it carries information, it is not decoration.
+  await page.keyboard.press("Space");
+  await expect(canvas).toHaveAttribute("data-anim", "rise");
+  await page.keyboard.up("ArrowRight");
+});
+
+test("player animates through idle, run, jump and landing states", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Start exploring" }).click();
+  const canvas = page.locator("canvas");
+  await expect(canvas).toHaveAttribute("data-grounded", "true");
+  await expect(canvas).toHaveAttribute("data-anim", "idle");
+
+  // The idle cycle advances on its own.
+  const idleFrame = await canvas.getAttribute("data-frame");
+  await expect
+    .poll(async () => canvas.getAttribute("data-frame"))
+    .not.toBe(idleFrame);
+
+  await page.keyboard.down("ArrowRight");
+  await expect(canvas).toHaveAttribute("data-anim", "run");
+  const runFrames = new Set<string | null>();
+  for (let i = 0; i < 14; i++) {
+    runFrames.add(await canvas.getAttribute("data-frame"));
+    await page.waitForTimeout(40);
+  }
+  // Every frame played must come from the run row, and the cycle must advance.
+  expect(
+    [...runFrames].every((frame) => ["4", "5", "6", "7"].includes(frame!)),
+  ).toBe(true);
+  expect(runFrames.size).toBeGreaterThan(1);
+
+  // The landing pose only lasts ~130ms, which is too brief to poll for
+  // reliably, so record every transition and assert the order afterwards.
+  await page.evaluate(() => {
+    const canvas = document.querySelector("canvas")!;
+    const seen: string[] = [];
+    (window as unknown as { __anims: string[] }).__anims = seen;
+    new MutationObserver(() => {
+      const anim = canvas.getAttribute("data-anim");
+      if (anim && seen[seen.length - 1] !== anim) seen.push(anim);
+    }).observe(canvas, { attributes: true, attributeFilter: ["data-anim"] });
+  });
+  await page.keyboard.press("Space");
+  await expect(canvas).toHaveAttribute("data-anim", "rise");
+  await page.keyboard.up("ArrowRight");
+  await expect(canvas).toHaveAttribute("data-anim", "idle");
+  const sequence = await page.evaluate(
+    () => (window as unknown as { __anims: string[] }).__anims,
+  );
+  expect(sequence.join(" > ")).toContain("rise > fall > land");
+});
+
+test("the player walks under the first platform and can land on top of it", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Start exploring" }).click();
+  const canvas = page.locator("canvas");
+  await expect(canvas).toHaveAttribute("data-grounded", "true");
+  const floorY = Number(await canvas.getAttribute("data-player-y"));
+
+  // The platform at x=670 must not wedge the player walking underneath it.
+  await page.keyboard.down("ArrowRight");
+  await expect
+    .poll(async () => Number(await canvas.getAttribute("data-player-x")), {
+      timeout: 8000,
+    })
+    .toBeGreaterThan(900);
+
+  // ...and must still be reachable by jumping onto it.
+  await page.reload();
+  await page.getByRole("button", { name: "Start exploring" }).click();
+  await expect(canvas).toHaveAttribute("data-grounded", "true");
+  await page.keyboard.down("ArrowRight");
+  await page.waitForFunction(
+    (x) =>
+      Number(document.querySelector("canvas")?.getAttribute("data-player-x")) >
+      x,
+    470,
+    { polling: 10 },
+  );
+  await page.keyboard.press("Space");
+  let highestStanding = floorY;
+  for (let i = 0; i < 30; i++) {
+    await page.waitForTimeout(50);
+    const y = Number(await canvas.getAttribute("data-player-y"));
+    if (
+      (await canvas.getAttribute("data-grounded")) === "true" &&
+      y < highestStanding
+    )
+      highestStanding = y;
+  }
+  await page.keyboard.up("ArrowRight");
+  expect(floorY - highestStanding).toBeGreaterThan(100);
+});

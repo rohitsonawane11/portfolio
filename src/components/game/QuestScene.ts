@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import { checkpoints, type CheckpointId } from "@/data/portfolio";
+import { playerSprite } from "@/lib/player-sprite";
 import type {
   QuestCallbacks,
   QuestHandle,
@@ -7,6 +8,25 @@ import type {
 } from "@/lib/quest-types";
 
 const WORLD_WIDTH = 5000;
+
+// The character renders 90px tall, and the collision box is held at a fixed
+// size in world units rather than derived from the frame. Animation frames vary
+// by ~60% in width, so deriving the body from the texture would change the
+// collision shape mid-stride — and the platform heights below are tuned to this
+// box: they clear the player's head when walking underneath while staying
+// inside the jump arc.
+const PLAYER_HEIGHT = 90;
+const PLAYER_BODY = { width: 22, height: 86 };
+const PLAYER_ANIMATIONS = {
+  idle: { frames: playerSprite.frames.idle, frameRate: 6, repeat: -1 },
+  run: { frames: playerSprite.frames.run, frameRate: 13, repeat: -1 },
+  // Jump row, in drawn order: crouch, rise, tuck, landing crouch.
+  rise: { frames: [playerSprite.frames.jump[1]], frameRate: 1, repeat: 0 },
+  fall: { frames: [playerSprite.frames.jump[2]], frameRate: 1, repeat: 0 },
+  land: { frames: [playerSprite.frames.jump[3]], frameRate: 1, repeat: 0 },
+} as const;
+type PlayerAnimation = keyof typeof PLAYER_ANIMATIONS;
+const LANDING_MS = 130;
 
 export class QuestScene extends Phaser.Scene {
   private player!: Phaser.Physics.Arcade.Sprite;
@@ -22,6 +42,8 @@ export class QuestScene extends Phaser.Scene {
   private audioContext?: AudioContext;
   private lastStatus = "";
   private reducedMotion: boolean;
+  private wasGrounded = true;
+  private landingUntil = 0;
 
   constructor(private callbacks: QuestCallbacks) {
     super("RohitQuest");
@@ -32,7 +54,10 @@ export class QuestScene extends Phaser.Scene {
 
   preload() {
     this.load.image("landscape", "/assets/world-background.webp");
-    this.load.image("player", "/assets/rohit-avatar.webp");
+    this.load.spritesheet(playerSprite.key, playerSprite.url, {
+      frameWidth: playerSprite.frameWidth,
+      frameHeight: playerSprite.frameHeight,
+    });
     this.load.image("castle", "/assets/clinzo-castle.webp");
     this.load.image("workshop", "/assets/openforms-workshop.webp");
     this.load.on("loaderror", () => this.callbacks.onError());
@@ -44,6 +69,8 @@ export class QuestScene extends Phaser.Scene {
     this.lastStatus = "";
     this.nearby = null;
     this.paused = false;
+    this.wasGrounded = true;
+    this.landingUntil = 0;
     this.touchState = { left: false, right: false, jump: false };
     this.physics.world.setBounds(0, -300, WORLD_WIDTH, height + 300);
     const background = this.add
@@ -155,19 +182,26 @@ export class QuestScene extends Phaser.Scene {
         .setOrigin(0.5);
     }
 
+    this.registerAnimations();
     this.player = this.physics.add.sprite(
       this.position,
       this.floor - 46,
-      "player",
+      playerSprite.key,
     );
-    this.player
-      .setScale(90 / this.player.height)
-      .setDepth(5)
-      .setCollideWorldBounds(true);
+    const scale = PLAYER_HEIGHT / playerSprite.characterHeight;
+    this.player.setScale(scale).setDepth(5).setCollideWorldBounds(true);
+    // Arcade multiplies the size it is given by the sprite's scale, so divide
+    // through to land on the world-space box named by PLAYER_BODY. The box sits
+    // centred on the frame and rests on the sheet's shared foot baseline.
     const body = this.player.body as Phaser.Physics.Arcade.Body;
+    const bodyWidth = PLAYER_BODY.width / scale;
+    const bodyHeight = PLAYER_BODY.height / scale;
     body
-      .setSize(this.player.width * 0.6, this.player.height * 0.95)
-      .setOffset(this.player.width * 0.2, this.player.height * 0.05);
+      .setSize(bodyWidth, bodyHeight, false)
+      .setOffset(
+        playerSprite.frameWidth / 2 - bodyWidth / 2,
+        playerSprite.baselineY - bodyHeight,
+      );
     this.physics.add.collider(this.player, platforms);
     const coins = this.physics.add.staticGroup();
     for (let i = 0; i < 28; i++) {
@@ -232,8 +266,13 @@ export class QuestScene extends Phaser.Scene {
         this.player.setVelocityX(0);
         this.input.keyboard?.resetKeys();
         this.touchState = { left: false, right: false, jump: false };
-        if (paused) this.physics.pause();
-        else this.physics.resume();
+        if (paused) {
+          this.physics.pause();
+          this.player.anims.pause();
+        } else {
+          this.physics.resume();
+          this.player.anims.resume();
+        }
       },
       mute: (muted) => {
         this.muted = muted;
@@ -265,6 +304,38 @@ export class QuestScene extends Phaser.Scene {
       void this.audioContext?.close();
       this.audioContext = undefined;
     });
+  }
+
+  /**
+   * Animations live on the game-level animation manager, not the scene, and
+   * create() re-runs on every scene.restart(), so re-registering would warn
+   * once per resize.
+   */
+  private registerAnimations() {
+    for (const [name, config] of Object.entries(PLAYER_ANIMATIONS)) {
+      const key = `player-${name}`;
+      if (this.anims.exists(key)) continue;
+      this.anims.create({
+        key,
+        frames: config.frames.map((frame) => ({
+          key: playerSprite.key,
+          frame,
+        })),
+        frameRate: config.frameRate,
+        repeat: config.repeat,
+      });
+    }
+  }
+
+  private playAnimation(name: PlayerAnimation) {
+    // Reduced motion keeps the informative poses — a jump still reads as a jump
+    // — but drops the decorative looping cycles for a single held frame.
+    if (this.reducedMotion && (name === "idle" || name === "run")) {
+      this.player.anims.stop();
+      this.player.setFrame(playerSprite.frames.idle[0]);
+      return;
+    }
+    this.player.play(`player-${name}`, true);
   }
 
   private activate(id: CheckpointId) {
@@ -307,17 +378,27 @@ export class QuestScene extends Phaser.Scene {
       this.keys.right.isDown || this.keys.d.isDown || this.touchState.right;
     this.player.setVelocityX(left ? -260 : right ? 260 : 0);
     if (left || right) this.player.setFlipX(left);
-    // Single-pose artwork: a subtle rotation conveys movement, without invented frames.
-    this.player.setAngle(
-      !this.reducedMotion && body.blocked.down && (left || right)
-        ? Math.sin(time / 75) * 2
-        : 0,
-    );
     if ((this.jumpQueued || this.touchState.jump) && body.blocked.down) {
       this.player.setVelocityY(-600);
       this.touchState.jump = false;
     }
     this.jumpQueued = false;
+
+    // The sheet is drawn facing right; setFlipX above covers the other way.
+    const grounded = body.blocked.down;
+    if (grounded && !this.wasGrounded) this.landingUntil = time + LANDING_MS;
+    this.wasGrounded = grounded;
+    this.playAnimation(
+      !grounded
+        ? body.velocity.y < 0
+          ? "rise"
+          : "fall"
+        : time < this.landingUntil
+          ? "land"
+          : left || right
+            ? "run"
+            : "idle",
+    );
     this.nearby =
       checkpoints.find((point) => Math.abs(point.x - this.player.x) < 165)
         ?.id ?? null;
@@ -339,5 +420,8 @@ export class QuestScene extends Phaser.Scene {
     this.game.canvas.dataset.playerX = String(Math.round(this.player.x));
     this.game.canvas.dataset.playerY = String(Math.round(this.player.y));
     this.game.canvas.dataset.grounded = String(body.blocked.down);
+    this.game.canvas.dataset.anim =
+      this.player.anims.currentAnim?.key.replace("player-", "") ?? "none";
+    this.game.canvas.dataset.frame = String(this.player.frame.name);
   }
 }

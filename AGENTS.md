@@ -15,6 +15,7 @@ Stack: Next.js 16 (App Router, Turbopack), React 19, TypeScript, Tailwind CSS v4
 - `src/lib/quest-types.ts`: the React ↔ Phaser contract (`QuestHandle`, `QuestCallbacks`).
 - `design/`: original full-size PNG artwork (design sources, not shipped).
 - `public/assets/`: optimised WebP runtime assets, generated from `design/`.
+- `src/lib/player-sprite.ts`: **generated** by `pnpm assets` — player frame geometry. Do not edit by hand.
 - `tests/portfolio.spec.ts`: Playwright end-to-end suite.
 - `scripts/prepare-assets.mjs`: regenerates `public/assets/*.webp` via sharp.
 
@@ -57,6 +58,17 @@ Two input gotchas are already worked around, so preserve them:
 - `scene.restart()` on resize drops any held movement key, and Phaser emits `resize` even when dimensions are unchanged, so the handler compares dimensions before restarting.
 
 Floating platforms must clear the player's head when walking underneath while staying inside the jump arc (apex = `velocity² / (2 × gravity)`). Moving them without checking both bounds will wedge the player against a platform edge.
+
+### Player sprite sheet
+
+`design/rohit-sprite-sheet.png` is image-generated and its 16 poses are **not** on a uniform grid — row bands differ by up to 41px, column bands by 21px, the jump row's figures drift ~35px horizontally, and three poses carry stray specks. `scripts/prepare-assets.mjs` therefore locates each pose by its own alpha bounding box and recomposites it onto a uniform cell, centring horizontally and aligning each row's grounded poses to a shared foot baseline. Do not "simplify" that back to an even grid: the character will jitter and change size mid-animation. The script fails loudly if the sheet stops having transparent gutters or a pose outgrows the cell.
+
+Two further constraints:
+
+- The collision box is fixed in world units (`PLAYER_BODY` in `QuestScene.ts`), not derived from the texture. Frames vary ~60% in width, so a frame-derived body would change shape mid-stride and break the platform clearances above. Note `Body.setSize` multiplies by the sprite's scale, so sizes are divided through by it.
+- Animations are registered on the **game-level** manager, so `registerAnimations()` guards with `anims.exists()` — `create()` re-runs on every `scene.restart()`.
+
+Under `prefers-reduced-motion` the looping idle and run cycles are parked on a single standing frame, while the jump poses still play: they convey state rather than decoration.
 
 ## Testing Guidelines
 
