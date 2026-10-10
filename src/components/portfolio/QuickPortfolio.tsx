@@ -136,14 +136,30 @@ export function QuickPortfolio() {
             <span className="tiny-square" /> CHECKPOINTS
           </span>
           <h2 id="experience-heading">The journey so far.</h2>
-          <p>Good software is built one lesson at a time.</p>
+          <p>{experience.summary}</p>
+          <p className="education">
+            {experience.education.degree} · {experience.education.school} ·{" "}
+            {experience.education.year}
+          </p>
         </div>
         <div className="timeline">
-          <span className="timeline-dot" />
           <span className="small-label">PROFESSIONAL EXPERIENCE</span>
-          <h3>{experience.title}</h3>
-          <p>{experience.description}</p>
-          <p className="todo">{experience.todo}</p>
+          <ol>
+            {experience.roles.map((role) => (
+              <li key={role.company} className="timeline-entry">
+                <span className="timeline-dot" />
+                <h3>{role.title}</h3>
+                <p className="timeline-meta">
+                  {role.company} · {role.period}
+                </p>
+                <ul>
+                  {role.highlights.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </li>
+            ))}
+          </ol>
         </div>
       </section>
       <section

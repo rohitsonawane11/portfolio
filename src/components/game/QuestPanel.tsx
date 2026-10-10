@@ -202,9 +202,19 @@ export function QuestPanel({
             )}
             {id === "experience" && (
               <>
-                <h3>{experience.title}</h3>
-                <p>{experience.description}</p>
-                <p className="todo">{experience.todo}</p>
+                <h3>{experience.heading}</h3>
+                <p>{experience.summary}</p>
+                <ol className="panel-timeline">
+                  {experience.roles.map((role) => (
+                    <li key={role.company}>
+                      <strong>{role.title}</strong>
+                      <span>
+                        {role.company} · {role.period}
+                      </span>
+                      <p>{role.highlights[0]}</p>
+                    </li>
+                  ))}
+                </ol>
               </>
             )}
             {id === "contact" && (

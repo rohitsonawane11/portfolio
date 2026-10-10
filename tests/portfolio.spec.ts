@@ -25,7 +25,7 @@ test("direct routes load and missing links cannot navigate to placeholders", asy
   for (const [route, title] of [
     ["/projects/clinzo360", "Clinzo360"],
     ["/projects/openforms", "OpenForms"],
-    ["/resume", "Résumé coming soon."],
+    ["/resume", "Résumé"],
   ]) {
     const response = await page.goto(route);
     expect(response?.status()).toBe(200);
@@ -53,12 +53,39 @@ test("configured contact details render as live links", async ({ page }) => {
     "href",
     "https://www.linkedin.com/in/rohit-sonawane-b4679b43",
   );
-  // The resume has no verified file yet, so it must stay visibly unavailable
-  // rather than becoming a dead link.
-  await expect(contact.locator(".contact-link.unavailable")).toHaveText(
-    /Résumé/,
+  await expect(contact.getByRole("link", { name: "Résumé" })).toHaveAttribute(
+    "href",
+    "/rohit-sonawane-resume.pdf",
   );
-  await expect(contact.getByRole("link", { name: "Résumé" })).toHaveCount(0);
+  // Every contact route is configured now, so nothing should render disabled.
+  await expect(contact.locator(".contact-link.unavailable")).toHaveCount(0);
+});
+
+test("the résumé PDF is actually served", async ({ page }) => {
+  const response = await page.request.get("/rohit-sonawane-resume.pdf");
+  expect(response.status()).toBe(200);
+  expect(response.headers()["content-type"]).toContain("pdf");
+  expect(Number(response.headers()["content-length"])).toBeGreaterThan(1000);
+});
+
+test("the journey lists every role with its company and dates", async ({
+  page,
+}) => {
+  await page.goto("/#experience");
+  const timeline = page.locator(".timeline");
+  await expect(timeline.locator(".timeline-entry")).toHaveCount(5);
+  for (const [title, meta] of [
+    ["Senior Backend Engineer", "Shree Infosoft · Feb 2026 — Present"],
+    ["Backend Engineer", "IceSpice Technologies · Aug 2023 — Jan 2026"],
+    ["Backend Engineer", "Myzer · Dec 2022 — Aug 2023"],
+    ["Developer Trainee", "FunctionUp · May 2022 — Dec 2022"],
+    ["Associate", "Accenture · May 2019 — May 2022"],
+  ]) {
+    const entry = timeline.locator(".timeline-entry", { hasText: meta });
+    await expect(entry.getByRole("heading", { name: title })).toBeVisible();
+  }
+  // The placeholder that stood in for this section must be gone.
+  await expect(page.locator(".experience-section .todo")).toHaveCount(0);
 });
 
 test("responsive quick portfolio has no overflow and does not start Phaser", async ({

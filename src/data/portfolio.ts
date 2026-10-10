@@ -1,6 +1,6 @@
 export const profile = {
   name: "Rohit",
-  role: "Backend & Full-Stack Engineer",
+  role: "Senior Backend Engineer",
   headline: "Hi, I'm Rohit. I design and ship reliable software.",
   description:
     "Backend-focused software engineer building production APIs, multi-tenant products, and cloud-deployed applications with NestJS, TypeScript, PostgreSQL, AWS, and Next.js.",
@@ -11,7 +11,7 @@ export const profile = {
   email: "mailto:rohit@imrohit.dev",
   github: "https://github.com/rohitsonawane11",
   linkedin: "https://www.linkedin.com/in/rohit-sonawane-b4679b43",
-  resume: "TODO_ADD_RESUME",
+  resume: "/rohit-sonawane-resume.pdf",
 };
 
 export function configuredLink(value: string): string | undefined {
@@ -173,11 +173,73 @@ export const projects: Project[] = [
   },
 ];
 
+export interface Role {
+  company: string;
+  title: string;
+  period: string;
+  highlights: string[];
+}
+
 export const experience = {
-  title: "The story is still being documented.",
-  description:
-    "Project work is shared above. A verified professional timeline will be added with company names, roles, dates, and outcomes.",
-  todo: "TODO: Add employer · role · dates · verified outcomes",
+  heading: "Six years in, three of them backend.",
+  summary:
+    "Backend engineer with 3+ years of backend development and 6+ years of overall work experience, building APIs, event-driven services, authentication flows, and integrations.",
+  // Every entry below is taken from the résumé in public/. Nothing here is
+  // inferred: if a detail is not on the résumé, it does not belong in this list.
+  roles: [
+    {
+      company: "Shree Infosoft",
+      title: "Senior Backend Engineer",
+      period: "Feb 2026 — Present",
+      highlights: [
+        "Lead backend delivery on a multi-service booking platform: own service design, review code, and guide the team.",
+        "Architected the booking and third-party integration services, plus lookup, tenant policy, and notification services.",
+        "Built a Kafka-driven audit service recording events emitted when bookings, policies, and other entities change.",
+        "Integrated Kong API Gateway with Keycloak, secured internal calls with X-API-Key, and managed secrets with Infisical.",
+        "Wrote Jest unit and e2e tests reaching 85% coverage.",
+      ],
+    },
+    {
+      company: "IceSpice Technologies",
+      title: "Backend Engineer",
+      period: "Aug 2023 — Jan 2026",
+      highlights: [
+        "Built an AWS Lambda rewards engine validating encrypted game events and recording credits and debits in a ledger.",
+        "Moved bulk ledger updates out of the login path into RabbitMQ workers, cutting peak login latency from 20s to 1s.",
+        "Delivered Redis caching and real-time order updates for a platform supporting 100K+ concurrent peak-event users.",
+      ],
+    },
+    {
+      company: "Myzer",
+      title: "Backend Engineer",
+      period: "Dec 2022 — Aug 2023",
+      highlights: [
+        "Built a multi-tenant landing-page SaaS with organisation roles, JSON templates, publishing, and usage analytics.",
+        "Integrated OpenAI for page copy and Midjourney for imagery, cutting generation from 3-4 minutes to under 20 seconds.",
+      ],
+    },
+    {
+      company: "FunctionUp",
+      title: "Developer Trainee",
+      period: "May 2022 — Dec 2022",
+      highlights: [
+        "Developed Node.js and Express APIs with MongoDB and JWT authentication.",
+      ],
+    },
+    {
+      company: "Accenture",
+      title: "Associate",
+      period: "May 2019 — May 2022",
+      highlights: [
+        "Handled insurance transaction processing and document verification workflows.",
+      ],
+    },
+  ] satisfies Role[],
+  education: {
+    degree: "Bachelor of Commerce (B.Com)",
+    school: "University of Mumbai",
+    year: "2019",
+  },
 };
 
 export const highlights = [

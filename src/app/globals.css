@@ -940,9 +940,23 @@ kbd {
 .experience-section p {
   font-size: 14px;
 }
+.education {
+  margin-top: 14px;
+  font-size: 13px !important;
+  color: #7b8a80;
+}
 .timeline {
+  position: relative;
+}
+.timeline > ol {
+  list-style: none;
+  margin: 14px 0 0;
   padding: 3px 0 2px 27px;
   border-left: 2px solid #c5d6c9;
+  display: grid;
+  gap: 30px;
+}
+.timeline-entry {
   position: relative;
 }
 .timeline-dot {
@@ -952,12 +966,58 @@ kbd {
   border: 3px solid #f8faf8;
   outline: 1px solid #56a077;
   position: absolute;
-  left: -7px;
-  top: 5px;
+  left: -34px;
+  top: 6px;
 }
 .timeline h3 {
-  margin-top: 13px;
   font-size: 20px;
+  margin: 0;
+}
+.timeline-meta {
+  margin: 4px 0 0;
+  font-size: 12px !important;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #7b8a80;
+}
+.timeline-entry ul {
+  /* Tailwind's preflight drops list markers; these are prose bullets rather
+     than the tag lists elsewhere on the page, so put them back. */
+  list-style: disc;
+  margin: 11px 0 0;
+  padding-left: 17px;
+  display: grid;
+  gap: 7px;
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: #596d63;
+}
+.timeline-entry li::marker {
+  color: #a8bcae;
+}
+.panel-timeline {
+  list-style: none;
+  margin: 18px 0 0;
+  padding: 2px 0 2px 19px;
+  border-left: 2px solid rgba(197, 214, 201, 0.5);
+  display: grid;
+  gap: 17px;
+}
+.panel-timeline strong {
+  display: block;
+  font-size: 15px;
+}
+.panel-timeline span {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  opacity: 0.72;
+}
+.panel-timeline p {
+  margin: 6px 0 0;
+  font-size: 13px;
 }
 .todo {
   font-size: 11px !important;
@@ -1811,6 +1871,9 @@ kbd {
   }
   .timeline {
     margin-left: 5px;
+  }
+  .timeline > ol {
+    gap: 26px;
   }
   .timeline h3 {
     font-size: 19px;
