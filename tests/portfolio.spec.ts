@@ -38,6 +38,29 @@ test("direct routes load and missing links cannot navigate to placeholders", asy
   ).toBeVisible();
 });
 
+test("configured contact details render as live links", async ({ page }) => {
+  await page.goto("/#contact");
+  const contact = page.locator(".contact-links").first();
+  await expect(contact.getByRole("link", { name: "Email" })).toHaveAttribute(
+    "href",
+    "mailto:rohit@imrohit.dev",
+  );
+  await expect(contact.getByRole("link", { name: "GitHub" })).toHaveAttribute(
+    "href",
+    "https://github.com/rohitsonawane11",
+  );
+  await expect(contact.getByRole("link", { name: "LinkedIn" })).toHaveAttribute(
+    "href",
+    "https://www.linkedin.com/in/rohit-sonawane-b4679b43",
+  );
+  // The resume has no verified file yet, so it must stay visibly unavailable
+  // rather than becoming a dead link.
+  await expect(contact.locator(".contact-link.unavailable")).toHaveText(
+    /Résumé/,
+  );
+  await expect(contact.getByRole("link", { name: "Résumé" })).toHaveCount(0);
+});
+
 test("responsive quick portfolio has no overflow and does not start Phaser", async ({
   page,
 }) => {

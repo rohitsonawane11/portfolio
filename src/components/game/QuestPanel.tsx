@@ -211,8 +211,8 @@ export function QuestPanel({
               <>
                 <h3>Great things start with a hello.</h3>
                 <p>
-                  Profile links will be available once the verified details are
-                  added.
+                  Email, GitHub and LinkedIn are below. A résumé will be added
+                  once there is a current one to link.
                 </p>
                 <ContactLinks />
               </>

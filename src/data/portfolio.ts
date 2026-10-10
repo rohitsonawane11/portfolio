@@ -6,9 +6,11 @@ export const profile = {
     "Backend-focused software engineer building production APIs, multi-tenant products, and cloud-deployed applications with NestJS, TypeScript, PostgreSQL, AWS, and Next.js.",
   heroDescription:
     "Building reliable backends. Crafting thoughtful products. Turning complex problems into software that works.",
-  email: "TODO_ADD_EMAIL",
-  github: "TODO_ADD_GITHUB",
-  linkedin: "TODO_ADD_LINKEDIN",
+  // configuredLink() only promotes https:, mailto: or root-relative values to a
+  // real href, so the scheme belongs in the data.
+  email: "mailto:rohit@imrohit.dev",
+  github: "https://github.com/rohitsonawane11",
+  linkedin: "https://www.linkedin.com/in/rohit-sonawane-b4679b43",
   resume: "TODO_ADD_RESUME",
 };
 
