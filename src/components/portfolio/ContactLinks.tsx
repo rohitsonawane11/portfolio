@@ -1,5 +1,5 @@
 import { Github, Linkedin, Mail, FileText, ArrowUpRight } from "lucide-react";
-import { configuredLink, profile } from "@/data/portfolio";
+import { configuredLink, contentLabels, profile } from "@/data/portfolio";
 
 export function ContactLinks() {
   const links = [
@@ -23,12 +23,11 @@ export function ContactLinks() {
             key={label}
             className="contact-link unavailable"
             aria-disabled="true"
-            title={value}
           >
             <Icon size={19} />
             <span>
               {label}
-              <small>Coming soon</small>
+              <small>{contentLabels.unavailableLink}</small>
             </span>
           </span>
         );

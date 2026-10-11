@@ -1,5 +1,7 @@
 # ROHIT QUEST — Master Build Prompt
 
+> **Historical design context.** This is the original build brief, preserved for its design rationale. The application now exists, serves generated WebP assets, and uses an animated sprite sheet. Its starter-kit paths, single-pose player guidance, and visible-placeholder instructions are historical. Use the [README](README.md), [implementation guide](IMPLEMENTATION_GUIDE.md), and [repository guidelines](AGENTS.md) for current contributor instructions; current code and configuration determine operational behavior. The original brief follows unchanged.
+
 Copy everything in this file into your coding LLM after placing the supplied assets in the project. This is an implementation specification, not a request for a static concept image.
 
 ---
@@ -180,4 +182,3 @@ Build it in small verifiable stages rather than dumping thousands of untested li
 5. Run `pnpm lint` and `pnpm build`; resolve errors. Explain what was implemented and any explicit TODOs. Add basic smoke tests if test tooling exists.
 
 Do not ask vague design questions; make sensible decisions from this prompt. Clearly state assumptions. First inspect the repository, then implement **Stage 1 and Stage 2** in working code; show which files changed, how to run locally, and what to review before the next stage. Deliver actual source code rather than only advice or screenshots.
-

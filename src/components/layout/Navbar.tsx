@@ -1,3 +1,5 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowUpRight, FileText, Menu } from "lucide-react";
@@ -33,7 +35,19 @@ export function Navbar() {
         >
           <FileText size={15} /> Résumé <ArrowUpRight size={15} />
         </Link>
-        <details className="mobile-menu">
+        <details
+          className="mobile-menu"
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              event.currentTarget.open = false;
+              event.currentTarget.querySelector("summary")?.focus();
+            }
+          }}
+          onClick={(event) => {
+            if ((event.target as HTMLElement).closest("a"))
+              event.currentTarget.open = false;
+          }}
+        >
           <summary aria-label="Open navigation">
             <Menu size={23} />
           </summary>

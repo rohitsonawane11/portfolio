@@ -1,5 +1,6 @@
 export const profile = {
   name: "Rohit",
+  fullName: "Rohit Sonawane",
   role: "Senior Backend Engineer",
   headline: "Hi, I'm Rohit. I design and ship reliable software.",
   description:
@@ -18,6 +19,23 @@ export function configuredLink(value: string): string | undefined {
   if (value.startsWith("TODO_") || !value.trim()) return undefined;
   return /^(https:\/\/|mailto:|\/[^/])/.test(value) ? value : undefined;
 }
+
+export const contentLabels = {
+  exitGame: "Exit",
+  backToPortfolio: "Back to portfolio",
+  checkpoints: "Checkpoints",
+  interact: "Explore",
+  gameTitle: "ROHIT QUEST",
+  playHint: "Hold a direction and tap Jump with your other thumb.",
+  move: "Move",
+  moveHint: "HOLD / SLIDE",
+  jump: "Jump",
+  jumpHint: "TAP TO JUMP",
+  findLandmark: "Find a landmark",
+  unavailableLink: "Not available",
+  projectLinks: "Project links",
+  resumeUnavailable: "The résumé is not available to download.",
+};
 
 export const navigation = [
   ["About", "about"],
@@ -76,44 +94,44 @@ export const projects: Project[] = [
     name: "Clinzo360",
     number: "01",
     location: "Clinzo Castle",
-    tagline: "Multi-tenant clinic management SaaS",
+    tagline: "A clinic platform, built from the backend up",
     description:
-      "A platform for clinic teams to manage access, patient workflows, consultations, and operations.",
-    status: "Engineering case study",
-    scope: "Backend & full-stack development",
+      "A solo clinic-management project in development, connecting clinic onboarding, membership, and team access with a Next.js interface.",
+    status: "In development",
+    scope: "Solo project · Backend & frontend",
     image: "/assets/clinzo-castle.webp",
-    stack: ["NestJS", "TypeScript", "PostgreSQL", "Next.js", "Docker", "AWS"],
+    stack: ["NestJS", "TypeScript", "TypeORM", "PostgreSQL", "Next.js"],
     highlights: [
-      "Role-based access, memberships & invitations",
-      "Consultation and patient queue workflows",
-      "Cloud deployment, CI/CD & observability",
+      "Clinic onboarding, memberships & invitations",
+      "Clinic-scoped sessions and role checks",
+      "Patient, queue & consultation UI prototypes",
     ],
     challenges:
-      "Tenant boundaries and permission checks are key engineering concerns for clinic software. This case study covers the reported scope; implementation examples and measured outcomes still need to be supplied.",
+      "Separating user identity from clinic membership makes access context explicit. Patient, queue, and consultation screens currently use mock data while their backend workflows remain planned.",
     sections: [
       {
         title: "Problem",
-        text: "Clinic teams need a shared place to coordinate access, patient queues, consultations, and daily operations. Clinzo360 brings these workflows into a multi-tenant product.",
+        text: "Clinzo360 explores how clinic teams can coordinate account access and daily operations in one product. It is in development and has not been released.",
       },
       {
         title: "Role & scope",
-        text: "Reported engineering work spans the NestJS backend, PostgreSQL data layer, Next.js frontend, and cloud delivery. Product areas include team membership and invitations, clinic settings, a medicine catalogue, and consultation and patient queue workflows. TODO: confirm project dates, individual ownership, and release status.",
+        text: "I own and develop the backend and frontend. Current implementation covers authentication, clinic onboarding, memberships, team invitations, and settings. Clinical workflows remain in development.",
       },
       {
         title: "Architecture",
-        text: "The reported stack pairs a Next.js frontend with a NestJS API and PostgreSQL persistence. Docker and AWS support delivery. This is a high-level stack overview; a verified component diagram and request flow are still to be added.",
+        text: "A Next.js frontend connects to a NestJS API, with TypeORM and PostgreSQL for persistence. User identity is separate from clinic membership, so a user can have a role within a specific clinic.",
       },
       {
         title: "Security & tenancy",
-        text: "Multi-tenancy and role-based access control are part of the reported scope, alongside team membership and invitation workflows. TODO: document the actual tenant isolation strategy, authorization checks, and testing approach. No medical compliance certification is claimed.",
+        text: "The API includes clinic-scoped session context, membership checks, and role guards.",
       },
       {
-        title: "Deployment & observability",
-        text: "Reported tools include Docker, cloud deployment, GitHub Actions CI/CD, Sentry, Prometheus, and Grafana. TODO: add a redacted delivery pipeline and a verified monitoring example, with no credentials or patient data.",
+        title: "Workflow prototypes",
+        text: "The patient, queue, and consultation interfaces use in-memory mock data. They explore the intended experience; they do not yet represent connected clinical workflows.",
       },
       {
         title: "Technical decisions",
-        text: "NestJS, TypeScript, and PostgreSQL form the backend foundation. TODO: explain the actual tradeoffs behind data modelling, authorization, and deployment decisions using code or architecture evidence. No performance or adoption metrics have been supplied.",
+        text: "Clinic onboarding groups related writes in a transaction. Separating identity, membership, and roles keeps clinic access context distinct from the user account.",
       },
     ],
     url: "TODO_ADD_CLINZO360_URL",
@@ -124,48 +142,48 @@ export const projects: Project[] = [
     name: "OpenForms",
     number: "02",
     location: "OpenForms Workshop",
-    tagline: "Form builder and response collection",
+    tagline: "A form-building API in development",
     description:
-      "A full-stack project exploring how people create, publish, share and collect responses through forms.",
-    status: "In progress",
-    scope: "Full-stack product exploration",
+      "A solo project implementing form authoring and publishing, with response collection and a frontend experience planned.",
+    status: "In development",
+    scope: "Solo project · Backend development",
     image: "/assets/openforms-workshop.webp",
-    stack: ["NestJS", "TypeScript", "PostgreSQL", "Next.js", "Tailwind CSS"],
+    stack: ["NestJS", "TypeScript", "TypeORM", "PostgreSQL"],
     highlights: [
-      "Exploring form creation and publishing",
-      "Designing a form and response model",
-      "Building toward a clear end-to-end experience",
+      "Owner-scoped form editing",
+      "Draft revisions and published snapshots",
+      "Server-side form schema validation",
     ],
     challenges:
-      "The project explores the relationship between a flexible form model, clear authoring UX, and trustworthy response validation. These are design goals; completion and release are not yet confirmed.",
+      "Draft edits need to stay separate from published forms. The API uses revision checks for edits and a snapshot for publication; response collection remains planned.",
     sections: [
       {
-        title: "UX",
-        text: "The intended journey covers creating a form, publishing it, sharing a link, and collecting responses. The project is in progress; finished screens and usability findings are not yet available.",
+        title: "Role & scope",
+        text: "I own and develop OpenForms as a solo project. The current implementation focuses on the API for creating, editing, and publishing forms. The product has not been released.",
       },
       {
         title: "Form model",
-        text: "The project explores how forms, questions, and responses can be represented in PostgreSQL. TODO: add the implemented schema and explain field types, ordering, and how edits affect existing responses.",
+        text: "Forms store a draft schema and settings alongside a published snapshot. Draft revisions allow the API to reject stale edits rather than overwrite a newer version.",
       },
       {
         title: "API design",
-        text: "NestJS and TypeScript are the backend stack for this project. TODO: confirm the implemented endpoints and document the form publishing and response submission lifecycle.",
+        text: "The API implements owner-scoped form creation, listing, editing, and deletion, plus publishing and unpublishing. A public read endpoint retrieves a published form by its slug.",
       },
       {
         title: "Validation",
-        text: "Validation is a design area for both the form editor and submitted responses. TODO: show verified rules and the actual client and server validation approach before claiming coverage.",
+        text: "Server-side validation checks the form schema when saving a draft and applies publication checks before creating a published snapshot. This is form-definition validation; response validation remains planned.",
       },
       {
         title: "Responses",
-        text: "Response collection is central to the product goal. TODO: confirm the persistence and retrieval flows, and add a demonstration using synthetic response data.",
+        text: "Submission persistence and response review are planned. The current submission service is a scaffold, so the project does not yet provide a complete response-collection flow.",
       },
       {
         title: "Architecture",
-        text: "The intended full-stack architecture combines Next.js and Tailwind CSS with a NestJS API and PostgreSQL. This describes the project direction, not a claim that every component is production-ready.",
+        text: "The implemented backend uses NestJS, TypeScript, TypeORM, and PostgreSQL. A Next.js and Tailwind CSS frontend remains a proposed direction.",
       },
       {
         title: "Roadmap",
-        text: "First, complete and verify the core create, publish, and respond flow. Analytics, conditional logic, collaboration, and multi-tenancy are possible future explorations; none are represented as shipped features.",
+        text: "The next goal is to connect a form-building interface with publishing, submission storage, and response review.",
       },
     ],
     url: "TODO_ADD_OPENFORMS_URL",
@@ -181,11 +199,10 @@ export interface Role {
 }
 
 export const experience = {
-  heading: "Six years in, three of them backend.",
+  heading: "Backend engineering and beyond.",
   summary:
-    "Backend engineer with 3+ years of backend development and 6+ years of overall work experience, building APIs, event-driven services, authentication flows, and integrations.",
-  // Every entry below is taken from the résumé in public/. Nothing here is
-  // inferred: if a detail is not on the résumé, it does not belong in this list.
+    "Backend engineer building APIs, event-driven services, authentication flows, and integrations, with earlier experience in insurance operations.",
+  // Career facts and non-numeric responsibilities confirmed by the owner on 2026-10-11.
   roles: [
     {
       company: "Shree Infosoft",
@@ -196,7 +213,7 @@ export const experience = {
         "Architected the booking and third-party integration services, plus lookup, tenant policy, and notification services.",
         "Built a Kafka-driven audit service recording events emitted when bookings, policies, and other entities change.",
         "Integrated Kong API Gateway with Keycloak, secured internal calls with X-API-Key, and managed secrets with Infisical.",
-        "Wrote Jest unit and e2e tests reaching 85% coverage.",
+        "Wrote Jest unit and end-to-end tests for backend services.",
       ],
     },
     {
@@ -205,8 +222,8 @@ export const experience = {
       period: "Aug 2023 — Jan 2026",
       highlights: [
         "Built an AWS Lambda rewards engine validating encrypted game events and recording credits and debits in a ledger.",
-        "Moved bulk ledger updates out of the login path into RabbitMQ workers, cutting peak login latency from 20s to 1s.",
-        "Delivered Redis caching and real-time order updates for a platform supporting 100K+ concurrent peak-event users.",
+        "Moved bulk ledger updates out of the login path into RabbitMQ workers.",
+        "Implemented Redis caching and real-time order updates.",
       ],
     },
     {
@@ -215,7 +232,7 @@ export const experience = {
       period: "Dec 2022 — Aug 2023",
       highlights: [
         "Built a multi-tenant landing-page SaaS with organisation roles, JSON templates, publishing, and usage analytics.",
-        "Integrated OpenAI for page copy and Midjourney for imagery, cutting generation from 3-4 minutes to under 20 seconds.",
+        "Integrated OpenAI for page copy and Midjourney for imagery.",
       ],
     },
     {
@@ -266,3 +283,11 @@ export const checkpoints = [
   { id: "contact", label: "Contact Kingdom", short: "Contact", x: 4520 },
 ] as const;
 export type CheckpointId = (typeof checkpoints)[number]["id"];
+
+export const siteMetadata = {
+  title: "Rohit Quest | Backend & Full-Stack Engineer",
+  description:
+    "Explore Rohit's engineering portfolio: backend services, clinic software and form-building projects in development. Play the pixel-art quest or browse the portfolio directly.",
+  socialDescription:
+    "Reliable backends. Thoughtful products. A little adventure.",
+};

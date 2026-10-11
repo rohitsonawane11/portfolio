@@ -11,3 +11,4 @@ test-results/
 .DS_Store
 .pnpm-store/
 next-env.d.ts
+output/

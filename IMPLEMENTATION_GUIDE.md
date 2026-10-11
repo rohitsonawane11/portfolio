@@ -1,91 +1,81 @@
-# ROHIT QUEST — How to Build with a Coding LLM
+# Rohit Quest — Implementation guide
 
-## What this kit contains
+This guide describes maintenance of the existing Next.js/Phaser application. Start with the [README](README.md) for prerequisites, installation, routes, commands, and browser setup, and follow [AGENTS.md](AGENTS.md) for repository rules. Current code and configuration determine operational behavior. [MASTER_PROMPT.md](MASTER_PROMPT.md) preserves historical design context; its starter-kit instructions are not the current workflow.
 
-- `MASTER_PROMPT.md`: complete project specification to give to a coding LLM.
-- `public/assets/world-background.png`: pixel-art scenic background (no gameplay collisions).
-- `public/assets/rohit-avatar.png`: original character illustration, transparent, single idle pose — **not a running/jumping sprite sheet**.
-- `public/assets/clinzo-castle.png`: original landmark for Clinzo360, transparent.
-- `public/assets/openforms-workshop.png`: original landmark for OpenForms, transparent.
+## Working on the application
 
-Artwork is original image-generated pixel-art illustration. It is concept-quality and sufficiently useful for an MVP, but not a production-grade tile atlas or multi-frame animation set. Avoid using copyrighted franchise artwork and music.
+1. Inspect the working tree before editing. Preserve unrelated changes, especially generated assets or sprite geometry being maintained in another task.
+2. Update user-facing content in [src/data/portfolio.ts](src/data/portfolio.ts). Confirm factual claims and link destinations; retain `TODO_` values internally for unavailable links so `configuredLink()` keeps them disabled. Keep unfinished editorial requests in the [content audit plan](plans/02-verified-content.md).
+3. Update routes in [src/app](src/app), static content in [src/components/portfolio](src/components/portfolio), and shared navigation in [src/components/layout](src/components/layout). Preserve plain HTML access to every piece of portfolio content, including direct project routes and the résumé.
+4. For gameplay, keep UI state in [Hero.tsx](src/components/game/Hero.tsx), Phaser setup/cleanup in [QuestGame.tsx](src/components/game/QuestGame.tsx), and world behavior in [QuestScene.ts](src/components/game/QuestScene.ts). Use the existing [React–Phaser contract](src/lib/quest-types.ts); do not introduce a second UI state owner in the scene.
+5. Keep Phaser dynamically loaded with server rendering disabled, and preserve mobile's static-first experience. Keep dialogs in accessible HTML through [QuestPanel.tsx](src/components/game/QuestPanel.tsx) and retain error fallback through the hero and [GameErrorBoundary.tsx](src/components/game/GameErrorBoundary.tsx).
 
-## Step 1 — Create your Next.js project
+## Asset workflow
 
-If you do not already have a portfolio repository:
+Original PNG artwork lives in [design](design); the site serves optimized WebP files from [public/assets](public/assets). All sources and generated outputs are included in the repository, so an ordinary checkout needs no external starter kit.
 
-```bash
-pnpm create next-app@latest rohit-quest --ts --tailwind --eslint --app --src-dir
-cd rohit-quest
-```
+| Source                          | Generated output                                                            |
+| ------------------------------- | --------------------------------------------------------------------------- |
+| `design/world-background.png`   | `public/assets/world-background.webp` and `public/assets/world-mobile.webp` |
+| `design/rohit-avatar.png`       | `public/assets/rohit-avatar.webp`                                           |
+| `design/clinzo-castle.png`      | `public/assets/clinzo-castle.webp`                                          |
+| `design/openforms-workshop.png` | `public/assets/openforms-workshop.webp`                                     |
+| `design/rohit-sprite-sheet.png` | `public/assets/rohit-sprite.webp` and `src/lib/player-sprite.ts`            |
 
-## Step 2 — Place assets
-
-Copy all four files from this kit's `public/assets/` folder into your Next.js project's `public/assets/` folder. Keep the filenames unchanged. `MASTER_PROMPT.md` expects those exact paths.
-
-## Step 3 — Give the coding LLM context
-
-Open the project folder in your coding agent (Codex, Claude Code, Cursor, etc.). Attach or paste the entire `MASTER_PROMPT.md`. Tell it you have copied the image assets into `public/assets` and ask it to implement Stage 1 and Stage 2 first. If the agent can read local files, point it at `MASTER_PROMPT.md` instead of pasting.
-
-## Step 4 — Test the first version
+After an intentional source-art or generator change, run from the repository root:
 
 ```bash
-pnpm install
-pnpm dev
+pnpm assets
+git diff --stat
+git diff -- src/lib/player-sprite.ts
 ```
 
-Open the printed local URL and verify the checklist below. Also run:
+[scripts/prepare-assets.mjs](scripts/prepare-assets.mjs) uses Sharp to trim non-background cutouts, resize images, and encode WebP. It produces a 720-pixel-wide mobile background and normalizes the sprite sheet into 16 frames, currently 66 × 99 pixels each. The avatar remains a separate single-pose illustration.
+
+Review the images and geometry together, then verify idle, running, jumping, landing, reduced motion, and platform clearance in the game. Include intended source and generated changes together. Asset generation is not part of `pnpm build`. Do not run it over unrelated uncommitted asset work; use an isolated checkout when evaluating regeneration.
+
+The generator emits compact JSON in the `frames` property, which can cause `pnpm format:check` to flag the generated TypeScript file. After intentional regeneration, format that output with `pnpm exec prettier --write src/lib/player-sprite.ts` and review the diff. Do not hand-edit its geometry or reformat another contributor's existing change without including that work in scope.
+
+### Sprite and physics constraints
+
+- The image-generated source sheet is not a uniform grid. The generator finds each pose using alpha bounds, filters stray specks, centers it horizontally, and aligns grounded poses in each row to a shared foot baseline. Preserve the jump poses' vertical relationships. Missing transparent gutters or oversized poses fail generation rather than silently producing bad frames.
+- [src/lib/player-sprite.ts](src/lib/player-sprite.ts) is generated geometry consumed by the runtime. Change the source artwork or generator and regenerate it; never manually adjust its frame geometry.
+- `PLAYER_BODY` in `QuestScene.ts` defines a fixed collision box in world units. Frame widths vary, so deriving the body from the current frame would change collisions during animation. Arcade `Body.setSize` applies sprite scale; the existing code divides dimensions by that scale.
+- Floating platforms must clear the walking player's head while remaining reachable inside the jump arc. Check both bounds using jump apex `velocity² / (2 × gravity)` and verify actual landings in Playwright.
+- Animations belong to Phaser's game-level manager. Preserve the `anims.exists()` guards in `registerAnimations()` because scene creation repeats after restart.
+- Under reduced motion, idle/run cycles hold a standing frame, while jump poses still convey gameplay state.
+
+### Input and resize constraints
+
+Jump and interaction actions listen for `keydown-*` events. Preserve these listeners: polling `JustDown` can lose a tap when keydown and keyup occur within a single frame. Preserve the dimension comparison before resize-triggered `scene.restart()` too; Phaser may emit unchanged dimensions, and unnecessary restarts drop held movement keys.
+
+## Validation workflow
+
+Follow the [README testing instructions](README.md#browser-setup-and-testing) for Chromium installation, the macOS Brave preference, and `PLAYWRIGHT_CHROMIUM_EXECUTABLE`. Run:
 
 ```bash
 pnpm lint
+pnpm typecheck
+pnpm format:check
 pnpm build
+pnpm test
 ```
 
-## Step 5 — Iterative prompts
+Use `pnpm format` to format intended repository changes, but first consider existing local edits. For a documentation-only change, format only the affected files. `IMPLEMENTATION_GUIDE.md` and `MASTER_PROMPT.md` are excluded by [.prettierignore](.prettierignore); explicitly format them with `pnpm exec prettier --ignore-path /dev/null --write IMPLEMENTATION_GUIDE.md MASTER_PROMPT.md` on macOS/Linux when editing those documents. Review the diff to avoid unrelated changes to historical text.
 
-### After basic visuals work
+With port 3000 free, validate the production server separately:
 
-> Implement the Phaser interaction layer from MASTER_PROMPT.md. Use real Arcade Physics movement, jump collisions, proximity prompts, E/Enter interactions, clickable buildings, and accessible React project overlays. Preserve all existing responsive design. Run lint and build.
+```bash
+pnpm build
+TEST_PRODUCTION=1 pnpm test
+```
 
-### After interaction works
+Do not count this as production validation if Playwright reused a running development server. `CI=1 TEST_PRODUCTION=1 pnpm test` disables reuse. Leave `TEST_PRODUCTION` unset for development tests.
 
-> Build the detailed Clinzo360 and OpenForms case-study routes. Use only verified product features and separate shipped work from work in progress. Keep all text in data/portfolio.ts and add visible TODO placeholders for missing links, dates, screenshots and metrics. Run lint and build.
+Add behavior-focused tests in [tests/portfolio.spec.ts](tests/portfolio.spec.ts) when behavior changes. The canvas exposes `data-player-x`, `data-player-y`, and `data-grounded` for physics assertions. Review desktop/mobile overflow, keyboard focus, reduced motion, no-JavaScript content, fallback, direct routes, and résumé delivery. Documentation-only edits need formatting, link, and command checks rather than new runtime tests.
 
-### After desktop works
+## Content and release follow-up
 
-> Perfect mobile and accessibility: default quick portfolio on phones, optional game, keyboard focus management, reduced motion, sound muted by default, fast static fallback, strong SEO and responsive layouts. Test touch, keyboard and small viewport. Run lint and build.
+The current résumé is [public/rohit-sonawane-resume.pdf](public/rohit-sonawane-resume.pdf), configured through `profile.resume`. Contact details and employment text already exist; audit them rather than assuming they still need initial placeholders. Project claims require evidence, and future screenshots must use synthetic data without patient or other private information.
 
-### Before publishing
-
-> Audit the whole portfolio as a recruiter and QA engineer. Find broken navigation, fake claims, placeholder links, keyboard traps, overflow, huge image downloads and hydration errors. Fix problems without changing the visual concept. Summarize unresolved TODOs.
-
-## Quality checklist
-
-- [ ] Website immediately explains who Rohit is and what engineering work he does.
-- [ ] `Start Adventure` controls a real moving character.
-- [ ] `Quick Portfolio` works without requiring gameplay.
-- [ ] Castle and workshop are interactive by pointer and keyboard.
-- [ ] Project details show accurate technologies and status.
-- [ ] Contact, GitHub and résumé links point somewhere real, or are visibly disabled.
-- [ ] Mobile mode is usable without a virtual joystick.
-- [ ] Sound is off initially, and motion preferences are respected.
-- [ ] Direct project URLs load and contain readable text.
-- [ ] No fake employment, user counts, medical compliance claims or metrics.
-- [ ] `pnpm lint` and `pnpm build` pass.
-
-## Asset tuning notes
-
-The image-generated PNGs are relatively large. For production, trim transparent margins and export optimised copies at appropriate display sizes. Keep the supplied originals as design sources. For proper animated walking and jumping, commission/draw a consistent sprite sheet with exact equal-sized frames; do not assume `rohit-avatar.png` already has frames. Keep separate hitboxes and collision rectangles in Phaser.
-
-## Content you still need to provide
-
-1. Your preferred public contact email and GitHub/LinkedIn URLs.
-2. A current résumé PDF.
-3. Your actual employer history, titles, and dates.
-4. Clinzo360 product screenshots that contain no patient/private data.
-5. OpenForms screenshots and links, once the project is sufficiently complete.
-
-## Practical scope
-
-Don't let game polish hold up the portfolio launch. Stage 1 can be shipped as an attractive regular portfolio with original pixel artwork, while Stage 2 makes the desktop hero genuinely playable.
-
+Execute [02 — Verified content](plans/02-verified-content.md) and [03 — Vercel release](plans/03-vercel-release.md) after the documentation work. Record the chosen production origin before configuring canonical metadata or sitemap URLs. Preserve the current pixel-art design and application stack while resolving launch requirements.

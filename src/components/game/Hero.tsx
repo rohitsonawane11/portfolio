@@ -6,8 +6,6 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ArrowDown,
-  ArrowLeft,
-  ArrowRight,
   ChevronRight,
   Coins,
   Gamepad2,
@@ -17,15 +15,26 @@ import {
   Volume2,
   VolumeX,
 } from "lucide-react";
-import { checkpoints, profile, type CheckpointId } from "@/data/portfolio";
+import {
+  checkpoints,
+  profile,
+  contentLabels,
+  type CheckpointId,
+} from "@/data/portfolio";
 import type { QuestHandle, QuestStatus, TouchAction } from "@/lib/quest-types";
 import { QuestPanel } from "./QuestPanel";
 import { GameErrorBoundary } from "./GameErrorBoundary";
+import { TouchControls } from "@/components/game/TouchControls";
+import { lockPageScroll } from "@/lib/scroll-lock";
 
 const QuestGame = dynamic(() => import("./QuestGame"), { ssr: false });
 
 export function Hero() {
   const [playing, setPlaying] = useState(false);
+  const [mobilePlay, setMobilePlay] = useState(false);
+  const [showCheckpoints, setShowCheckpoints] = useState(false);
+  const playButton = useRef<HTMLElement | null>(null);
+  const playView = useRef<HTMLElement | null>(null);
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
   const [paused, setPaused] = useState(false);
@@ -53,6 +62,7 @@ export function Hero() {
     setPanel(id);
   }, []);
   const onError = useCallback(() => {
+    setMobilePlay(false);
     setFailed(true);
     setPlaying(false);
     setReady(false);
@@ -75,15 +85,64 @@ export function Hero() {
       setPaused(true);
       handle.current?.pause(true);
     };
+    const onVisibility = () => {
+      if (document.hidden) onWindowBlur();
+    };
     window.addEventListener("blur", onWindowBlur);
-    return () => window.removeEventListener("blur", onWindowBlur);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("blur", onWindowBlur);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, [playing]);
   const pause = (value: boolean) => {
     pausedRef.current = value;
     setPaused(value);
     handle.current?.pause(value);
   };
-  const start = () => {
+  useEffect(() => {
+    if (!mobilePlay || !playing) return;
+    const scrollY = window.scrollY;
+    const view = playView.current;
+    const startButton = playButton.current;
+    const unlock = lockPageScroll();
+    const background = Array.from(
+      document.querySelectorAll<HTMLElement>(
+        ".site-header, #quick-portfolio, .site-footer, .skip-link",
+      ),
+    ).map((element) => ({ element, inert: element.inert }));
+    background.forEach(({ element }) => {
+      element.inert = true;
+    });
+    view?.focus({ preventScroll: true });
+    return () => {
+      background.forEach(({ element, inert }) => {
+        element.inert = inert;
+      });
+      unlock();
+      window.scrollTo({ top: scrollY, behavior: "instant" });
+      const returnTarget = startButton?.isConnected
+        ? startButton
+        : view?.querySelector<HTMLElement>(".start-mobile");
+      returnTarget?.focus({ preventScroll: true });
+    };
+  }, [mobilePlay, playing]);
+  const exit = () => {
+    handle.current?.pause(true);
+    panelRef.current = null;
+    setPanel(null);
+    setPlaying(false);
+    setMobilePlay(false);
+    setReady(false);
+    setShowCheckpoints(false);
+    handle.current = null;
+  };
+  const start = (event: { currentTarget: HTMLElement }) => {
+    playButton.current = event.currentTarget;
+    setMobilePlay(
+      window.matchMedia("(max-width: 1000px), (pointer: coarse)").matches,
+    );
+    setShowCheckpoints(false);
     setFailed(false);
     setReady(false);
     pausedRef.current = false;
@@ -97,19 +156,50 @@ export function Hero() {
     shell.current
       ?.querySelector<HTMLElement>(".game-canvas")
       ?.focus({ preventScroll: true });
-  const touch = (action: TouchAction, value: boolean) =>
+  const touch = useCallback((action: TouchAction, value: boolean) => {
     handle.current?.touch(action, value);
+  }, []);
 
   return (
     <section
-      className={`hero ${playing ? "is-playing" : ""}`}
+      className={`hero ${playing ? "is-playing" : ""} ${mobilePlay && playing ? "mobile-play" : ""}`}
+      ref={playView}
+      role={mobilePlay && playing ? "dialog" : undefined}
+      aria-modal={mobilePlay && playing ? true : undefined}
+      tabIndex={mobilePlay && playing ? -1 : undefined}
+      onKeyDown={(event) => {
+        if (!mobilePlay || panel) return;
+        if (event.key === "Escape") {
+          event.preventDefault();
+          exit();
+        }
+        if (event.key !== "Tab") return;
+        const controls = Array.from(
+          event.currentTarget.querySelectorAll<HTMLElement>(
+            'button:not(:disabled), a[href], [tabindex="0"]',
+          ),
+        ).filter((element) => element.getClientRects().length > 0);
+        const first = controls[0];
+        const last = controls.at(-1);
+        if (
+          event.shiftKey &&
+          (document.activeElement === first ||
+            document.activeElement === event.currentTarget)
+        ) {
+          event.preventDefault();
+          last?.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first?.focus();
+        }
+      }}
       aria-label="Welcome to Rohit Quest"
     >
       <div
         className="hero-viewport"
         ref={shell}
         onKeyDown={(event) => {
-          if (event.key === "Escape" && playing && !panel) {
+          if (event.key === "Escape" && playing && !panel && !mobilePlay) {
             pause(!paused);
             event.preventDefault();
           }
@@ -169,6 +259,11 @@ export function Hero() {
                   {paused ? <Play size={17} /> : <Pause size={17} />}
                 </button>
               </>
+            )}
+            {mobilePlay && playing && (
+              <button className="play-exit" onClick={exit}>
+                {contentLabels.exitGame}
+              </button>
             )}
             <a href="#quick-portfolio" className="skip-game" onClick={quick}>
               SKIP GAME <ChevronRight size={14} />
@@ -257,59 +352,73 @@ export function Hero() {
             <div className="static-ground" aria-hidden="true" />
           </>
         )}
-        {playing && (
-          <GameErrorBoundary onError={onError}>
-            <QuestGame
-              onReady={onReady}
-              onInteraction={onInteraction}
-              onStatus={setStatus}
-              onError={onError}
-            />
-          </GameErrorBoundary>
-        )}
-        {playing && !ready && (
-          <div className="game-loading" role="status">
-            <Gamepad2 size={32} />
-            <strong>Preparing your adventure…</strong>
-            <p>The portfolio is ready to explore below.</p>
-            <a href="#quick-portfolio" className="text-link" onClick={quick}>
-              Go to the projects <ArrowDown size={16} />
-            </a>
+        {playing && mobilePlay && (
+          <div className="mobile-stage-heading">
+            <span>{contentLabels.gameTitle}</span>
+            <h2>{status.checkpoint}</h2>
           </div>
         )}
-        {playing && ready && paused && !panel && (
-          <div className="pause-overlay">
-            <span className="pixel">TAKE A BREATHER</span>
+        <div className={playing ? "game-stage" : "game-stage-hidden"}>
+          {playing && (
+            <GameErrorBoundary onError={onError}>
+              <QuestGame
+                onReady={onReady}
+                onInteraction={onInteraction}
+                onStatus={setStatus}
+                onError={onError}
+              />
+            </GameErrorBoundary>
+          )}
+          {playing && !ready && (
+            <div className="game-loading" role="status">
+              <Gamepad2 size={32} />
+              <strong>Preparing your adventure…</strong>
+              <p>The portfolio is ready to explore below.</p>
+              {mobilePlay ? (
+                <button className="text-link" onClick={exit}>
+                  {contentLabels.backToPortfolio}
+                </button>
+              ) : (
+                <a
+                  href="#quick-portfolio"
+                  className="text-link"
+                  onClick={quick}
+                >
+                  Go to the projects <ArrowDown size={16} />
+                </a>
+              )}
+            </div>
+          )}
+          {playing && ready && paused && !panel && (
+            <div className="pause-overlay">
+              <span className="pixel">TAKE A BREATHER</span>
+              <button
+                className="button button-gold"
+                onClick={() => {
+                  pause(false);
+                  focusGame();
+                }}
+              >
+                <Play size={16} /> Resume adventure
+              </button>
+              <button className="text-link" onClick={exit}>
+                Exit game
+              </button>
+            </div>
+          )}
+          {playing && ready && status.prompt && !paused && !panel && (
             <button
-              className="button button-gold"
-              onClick={() => {
-                pause(false);
-                focusGame();
-              }}
+              className="interaction-prompt"
+              onClick={() => handle.current?.interact()}
             >
-              <Play size={16} /> Resume adventure
+              <kbd>E</kbd> Explore{" "}
+              {checkpoints.find((item) => item.id === status.prompt)?.short}
+              <ChevronRight size={16} />
             </button>
-            <button
-              className="text-link"
-              onClick={() => {
-                setPlaying(false);
-                setReady(false);
-                handle.current = null;
-              }}
-            >
-              Exit game
-            </button>
-          </div>
-        )}
-        {playing && ready && status.prompt && !paused && !panel && (
-          <button
-            className="interaction-prompt"
-            onClick={() => handle.current?.interact()}
-          >
-            <kbd>E</kbd> Explore{" "}
-            {checkpoints.find((item) => item.id === status.prompt)?.short}
-            <ChevronRight size={16} />
-          </button>
+          )}
+        </div>
+        {playing && mobilePlay && (
+          <p className="mobile-play-hint">{contentLabels.playHint}</p>
         )}
       </div>
       <div className="controls-bar" id="game-controls">
@@ -343,44 +452,56 @@ export function Hero() {
           below. <button onClick={start}>Try again</button>
         </p>
       )}
-      {playing && ready && (
-        <div className="checkpoint-bar">
-          <span className="small-label">JUMP TO</span>
-          {checkpoints.map((point) => (
-            <button
-              key={point.id}
-              onClick={() => {
-                pause(false);
-                handle.current?.travel(point.id);
-                focusGame();
-              }}
-            >
-              {point.short}
-            </button>
-          ))}
-          <div className="touch-controls">
-            {(["left", "right", "jump"] as const).map((action) => (
+      {playing && (ready || mobilePlay) && (
+        <div className="play-controls">
+          {mobilePlay && (
+            <div className="mobile-control-toolbar">
               <button
-                key={action}
-                aria-label={`${action} in game`}
-                onPointerDown={(event) => {
-                  event.currentTarget.setPointerCapture(event.pointerId);
-                  touch(action, true);
-                }}
-                onPointerUp={() => touch(action, false)}
-                onPointerCancel={() => touch(action, false)}
-                onLostPointerCapture={() => touch(action, false)}
+                className="touch-interact"
+                aria-label={contentLabels.interact}
+                disabled={!ready || paused || !!panel || !status.prompt}
+                onClick={() => handle.current?.interact()}
               >
-                {action === "left" ? (
-                  <ArrowLeft size={19} />
-                ) : action === "right" ? (
-                  <ArrowRight size={19} />
-                ) : (
-                  "Jump"
-                )}
+                {status.prompt
+                  ? `${contentLabels.interact} ${checkpoints.find((point) => point.id === status.prompt)?.short}`
+                  : contentLabels.findLandmark}
+                <ChevronRight size={17} />
+              </button>
+              <button
+                className="checkpoint-toggle"
+                disabled={!ready}
+                aria-expanded={showCheckpoints}
+                aria-controls="checkpoint-choices"
+                onClick={() => setShowCheckpoints(!showCheckpoints)}
+              >
+                {contentLabels.checkpoints}
+              </button>
+            </div>
+          )}
+          <div
+            id="checkpoint-choices"
+            className={`checkpoint-bar ${showCheckpoints ? "is-expanded" : ""}`}
+          >
+            <span className="small-label">JUMP TO</span>
+            {checkpoints.map((point) => (
+              <button
+                key={point.id}
+                onClick={() => {
+                  pause(false);
+                  handle.current?.travel(point.id);
+                  setShowCheckpoints(false);
+                  focusGame();
+                }}
+              >
+                {point.short}
               </button>
             ))}
           </div>
+          <TouchControls
+            key={ready && !paused && !panel ? "active" : "inactive"}
+            disabled={!ready || paused || !!panel}
+            onTouch={touch}
+          />
         </div>
       )}
       {panel && <QuestPanel key={panel} id={panel} onClose={closePanel} />}

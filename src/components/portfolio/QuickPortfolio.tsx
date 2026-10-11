@@ -180,9 +180,6 @@ export function QuickPortfolio() {
             Let’s find a way to build something useful.
           </p>
           <ContactLinks />
-          <p className="contact-note">
-            Contact details and résumé are being added. Check back soon.
-          </p>
         </div>
         <span className="contact-star star-one" aria-hidden="true">
           ✦

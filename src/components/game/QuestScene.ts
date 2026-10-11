@@ -64,24 +64,37 @@ export class QuestScene extends Phaser.Scene {
   }
 
   create() {
-    const { width, height } = this.scale;
+    const viewportWidth = this.scale.width;
+    const viewportHeight = this.scale.height;
+    // Keep the same world-space jump arc in short landscape viewports.
+    const zoom = Math.min(1, viewportHeight / 470, viewportWidth / 640);
+    const width = viewportWidth / zoom;
+    const height = viewportHeight / zoom;
+    this.cameras.main.setZoom(zoom);
     this.floor = height - 62;
     this.lastStatus = "";
     this.nearby = null;
+    this.jumpQueued = false;
     this.paused = false;
     this.wasGrounded = true;
     this.landingUntil = 0;
     this.touchState = { left: false, right: false, jump: false };
     this.physics.world.setBounds(0, -300, WORLD_WIDTH, height + 300);
     const background = this.add
-      .image(width / 2, height / 2, "landscape")
+      .image(viewportWidth / 2, viewportHeight / 2, "landscape")
       .setScrollFactor(0);
     background.setScale(
       Math.max(width / background.width, height / background.height),
     );
     this.add
-      .rectangle(0, 0, width, height, 0xc8efff, 0.1)
-      .setOrigin(0)
+      .rectangle(
+        viewportWidth / 2,
+        viewportHeight / 2,
+        width,
+        height,
+        0xc8efff,
+        0.1,
+      )
       .setScrollFactor(0);
 
     const ground = this.add.graphics();
@@ -278,6 +291,12 @@ export class QuestScene extends Phaser.Scene {
         this.muted = muted;
       },
       touch: (action: TouchAction, pressed) => {
+        // Like keyboard taps, touch taps may begin and end between frames.
+        // Queue the press so pointerup cannot swallow a quick jump.
+        if (action === "jump") {
+          if (pressed && !this.paused) this.jumpQueued = true;
+          return;
+        }
         this.touchState[action] = pressed;
       },
       interact: () => {
@@ -288,8 +307,8 @@ export class QuestScene extends Phaser.Scene {
     // Phaser emits `resize` even when the dimensions are unchanged. Restarting on
     // those drops any movement key the player is currently holding, so only rebuild
     // the scene when the layout genuinely changed.
-    let lastWidth = width;
-    let lastHeight = height;
+    let lastWidth = viewportWidth;
+    let lastHeight = viewportHeight;
     const onResize = () => {
       if (this.scale.width === lastWidth && this.scale.height === lastHeight)
         return;

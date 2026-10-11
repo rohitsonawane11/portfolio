@@ -1,7 +1,12 @@
 import Link from "next/link";
 import { FileText, ArrowLeft, ArrowUpRight } from "lucide-react";
 import type { Metadata } from "next";
-import { configuredLink, experience, profile } from "@/data/portfolio";
+import {
+  configuredLink,
+  contentLabels,
+  experience,
+  profile,
+} from "@/data/portfolio";
 export const metadata: Metadata = { title: "Résumé" };
 export default function ResumePage() {
   const resume = configuredLink(profile.resume);
@@ -18,9 +23,7 @@ export default function ResumePage() {
           Open the PDF <ArrowUpRight size={17} />
         </a>
       ) : (
-        <p className="todo">
-          TODO_ADD_RESUME — add a current PDF and update src/data/portfolio.ts.
-        </p>
+        <p>{contentLabels.resumeUnavailable}</p>
       )}
       <Link href="/#experience" className="text-link">
         <ArrowLeft size={17} /> Back to the journey

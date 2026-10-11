@@ -1,9 +1,9 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowLeft, ArrowUpRight, Github, ImageIcon } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, Github } from "lucide-react";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { configuredLink, projects } from "@/data/portfolio";
+import { configuredLink, contentLabels, projects } from "@/data/portfolio";
 
 export function generateStaticParams() {
   return projects.map(({ slug }) => ({ slug }));
@@ -73,7 +73,7 @@ export default async function ProjectPage({
               {section.title}
             </a>
           ))}
-          <a href="#screenshots">Screenshots & links</a>
+          <a href="#project-links">{contentLabels.projectLinks}</a>
         </aside>
         <article className="case-body">
           {project.sections.map((section, index) => (
@@ -81,36 +81,10 @@ export default async function ProjectPage({
               <span className="section-number">0{index + 1}</span>
               <h2>{section.title}</h2>
               <p>{section.text}</p>
-              {section.title === "Architecture" && (
-                <div
-                  className="architecture"
-                  aria-label="Stack overview: Next.js frontend connects to a NestJS API and PostgreSQL database"
-                >
-                  <span>
-                    Next.js<small>Frontend</small>
-                  </span>
-                  <span aria-hidden="true">→</span>
-                  <span>
-                    NestJS<small>API</small>
-                  </span>
-                  <span aria-hidden="true">→</span>
-                  <span>
-                    PostgreSQL<small>Database</small>
-                  </span>
-                </div>
-              )}
             </section>
           ))}
-          <section id="screenshots">
-            <h2>Screenshots & links</h2>
-            <div className="screenshot-placeholder">
-              <ImageIcon size={28} />
-              <strong>Product screenshots coming soon</strong>
-              <p>
-                TODO: Add verified screenshots using synthetic data only. The
-                landmark illustration above is portfolio artwork.
-              </p>
-            </div>
+          <section id="project-links">
+            <h2>{contentLabels.projectLinks}</h2>
             <div className="case-links">
               {[
                 {
@@ -138,9 +112,8 @@ export default async function ProjectPage({
                     className="button button-disabled"
                     aria-disabled="true"
                     key={label}
-                    title={value}
                   >
-                    {label} · coming soon <Icon size={17} />
+                    {label} · {contentLabels.unavailableLink} <Icon size={17} />
                   </span>
                 ),
               )}

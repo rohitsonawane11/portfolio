@@ -1,4 +1,62 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Locator } from "@playwright/test";
+
+async function expectNoEditorialPlaceholders(scope: Locator) {
+  await expect(scope).not.toContainText(
+    /TODO[:_]|coming soon|check back soon|still (?:need|to be)|not yet available/i,
+  );
+  await expect(
+    scope.locator(
+      '[title*="TODO"], [aria-label*="TODO"], [alt*="TODO"], a[href*="TODO_"]',
+    ),
+  ).toHaveCount(0);
+}
+
+test("public content has no editorial placeholders with or without JavaScript", async ({
+  browser,
+  baseURL,
+}) => {
+  for (const javaScriptEnabled of [false, true]) {
+    const context = await browser.newContext({
+      baseURL,
+      javaScriptEnabled,
+      viewport: { width: javaScriptEnabled ? 390 : 1440, height: 900 },
+    });
+    const page = await context.newPage();
+    for (const route of [
+      "/",
+      "/projects/clinzo360",
+      "/projects/openforms",
+      "/resume",
+    ]) {
+      await page.goto(route);
+      await expectNoEditorialPlaceholders(page.locator("body"));
+      await expect(page.locator('meta[content*="TODO"]')).toHaveCount(0);
+      if (route.startsWith("/projects/")) {
+        await expect(
+          page.locator(
+            '#screenshots, .screenshot-placeholder, a[href="#screenshots"]',
+          ),
+        ).toHaveCount(0);
+        const links = page.locator("#project-links");
+        await expect(links.getByRole("heading")).toHaveText("Project links");
+        await expect(links.locator('[aria-disabled="true"]')).toHaveCount(2);
+        await expect(links.getByRole("link")).toHaveCount(0);
+        for (const anchor of await page.locator(".case-toc a").all()) {
+          const href = await anchor.getAttribute("href");
+          expect(href).toMatch(/^#/);
+          await expect(page.locator(href!)).toHaveCount(1);
+        }
+        if (route === "/projects/clinzo360") {
+          await page.screenshot({
+            path: `test-results/content-${javaScriptEnabled ? "mobile" : "desktop"}.png`,
+            fullPage: true,
+          });
+        }
+      }
+    }
+    await context.close();
+  }
+});
 
 test("portfolio and case studies work without JavaScript", async ({
   browser,
@@ -170,6 +228,7 @@ test("checkpoints open keyboard-accessible panels, trap focus and restore positi
   await page.keyboard.press("e");
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
+  await expectNoEditorialPlaceholders(dialog);
   await expect(
     dialog.getByRole("heading", { name: "Clinzo360", exact: true }),
   ).toBeVisible();
@@ -187,6 +246,10 @@ test("checkpoints open keyboard-accessible panels, trap focus and restore positi
   await expect(
     dialog.getByRole("heading", { name: "Architecture" }),
   ).toBeVisible();
+  await expectNoEditorialPlaceholders(dialog);
+  await dialog.getByRole("button", { name: "Challenges", exact: true }).click();
+  await expectNoEditorialPlaceholders(dialog);
+  await expect(dialog.locator('[aria-disabled="true"]')).toHaveCount(2);
   await page.screenshot({ path: "test-results/project-panel.png" });
   await page.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
@@ -204,6 +267,14 @@ test("checkpoints open keyboard-accessible panels, trap focus and restore positi
     await expect(page.locator(".interaction-prompt")).toContainText(checkpoint);
     await page.keyboard.press("Enter");
     await expect(dialog).toBeVisible();
+    await expectNoEditorialPlaceholders(dialog);
+    if (checkpoint === "OpenForms") {
+      for (const name of ["Architecture", "Challenges"]) {
+        await dialog.getByRole("button", { name, exact: true }).click();
+        await expectNoEditorialPlaceholders(dialog);
+      }
+      await expect(dialog.locator('[aria-disabled="true"]')).toHaveCount(2);
+    }
     await dialog.getByRole("button", { name: "Close panel" }).click();
     await expect(dialog).toHaveCount(0);
   }
@@ -382,4 +453,303 @@ test("the player walks under the first platform and can land on top of it", asyn
   }
   await page.keyboard.up("ArrowRight");
   expect(floorY - highestStanding).toBeGreaterThan(100);
+});
+
+test("confirmed content distinguishes prototypes and omits performance metrics", async ({
+  page,
+}) => {
+  for (const route of [
+    "/",
+    "/projects/clinzo360",
+    "/projects/openforms",
+    "/resume",
+  ]) {
+    await page.goto(route);
+    await expect(page.locator("main")).not.toContainText(
+      /85%|100K|20s|3-4 minutes|6\+ years|3\+ years|Six years in/,
+    );
+  }
+  await page.goto("/projects/clinzo360");
+  await expect(page.locator("main")).toContainText("in-memory mock data");
+  await expect(page.locator("main")).toContainText("In development");
+  await page.goto("/projects/openforms");
+  await expect(page.locator("main")).toContainText(
+    "Submission persistence and response review are planned",
+  );
+  await expect(page.locator("main")).toContainText("In development");
+});
+
+test("phone pages fit narrow screens and navigation closes after selection", async ({
+  page,
+}) => {
+  for (const width of [320, 390, 430, 768]) {
+    await page.setViewportSize({ width, height: 844 });
+    for (const route of [
+      "/",
+      "/projects/clinzo360",
+      "/projects/openforms",
+      "/resume",
+    ]) {
+      await page.goto(route);
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth,
+        ),
+      ).toBe(true);
+    }
+  }
+  await page.setViewportSize({ width: 320, height: 640 });
+  await page.goto("/");
+  const menu = page.locator(".mobile-menu");
+  await menu.locator("summary").click();
+  await menu.getByRole("link", { name: "Projects" }).click();
+  await expect(menu).not.toHaveAttribute("open", "");
+  await menu.locator("summary").click();
+  await page.keyboard.press("Escape");
+  await expect(menu).not.toHaveAttribute("open", "");
+  await expect(menu.locator("summary")).toBeFocused();
+  await page.screenshot({
+    path: "test-results/mobile-320.png",
+    fullPage: true,
+  });
+});
+
+test("mobile play supports multitouch, rotation, panels, and exit restoration", async ({
+  browser,
+  baseURL,
+}) => {
+  const context = await browser.newContext({
+    baseURL,
+    viewport: { width: 390, height: 844 },
+    hasTouch: true,
+    isMobile: true,
+  });
+  const page = await context.newPage();
+  await page.goto("/");
+  const start = page.getByRole("button", { name: "Play mini game" });
+  await start.scrollIntoViewIfNeeded();
+  const scroll = await page.evaluate(() => scrollY);
+  await start.tap();
+  const play = page.locator(".mobile-play");
+  const canvas = page.locator("canvas");
+  await expect(play).toHaveAttribute("aria-modal", "true");
+  await expect(canvas).toHaveAttribute("data-grounded", "true");
+  const right = page.getByRole("button", { name: "right in game" });
+  const jump = page.getByRole("button", { name: "jump in game" });
+  const cdp = await context.newCDPSession(page);
+  const center = async (control: Locator, id: number) => {
+    const box = (await control.boundingBox())!;
+    return { id, x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  };
+  const movement = await center(right, 1);
+  const jumping = await center(jump, 2);
+  const x = Number(await canvas.getAttribute("data-player-x"));
+  await cdp.send("Input.dispatchTouchEvent", {
+    type: "touchStart",
+    touchPoints: [movement],
+  });
+  await expect
+    .poll(async () => Number(await canvas.getAttribute("data-player-x")))
+    .toBeGreaterThan(x + 50);
+  await cdp.send("Input.dispatchTouchEvent", {
+    type: "touchStart",
+    touchPoints: [movement, jumping],
+  });
+  await expect(canvas).toHaveAttribute("data-grounded", "false");
+  await expect
+    .poll(async () => Number(await canvas.getAttribute("data-player-x")))
+    .toBeGreaterThan(580);
+  await cdp.send("Input.dispatchTouchEvent", {
+    type: "touchEnd",
+    touchPoints: [],
+  });
+  await expect(canvas).toHaveAttribute("data-grounded", "true");
+  const position = Number(await canvas.getAttribute("data-player-x"));
+  const coins = await page.locator(".coin-count").innerText();
+  await page.screenshot({ path: "test-results/play-portrait.png" });
+  await page.setViewportSize({ width: 844, height: 390 });
+  await expect
+    .poll(async () => Number(await canvas.getAttribute("width")))
+    .toBeGreaterThan(780);
+  await expect
+    .poll(
+      async () =>
+        Number(await canvas.getAttribute("width")) -
+        (await page
+          .locator(".game-canvas")
+          .evaluate((element) => element.clientWidth)),
+    )
+    .toBe(0);
+  await expect
+    .poll(async () => Number(await canvas.getAttribute("data-player-y")))
+    .toBeLessThan(470);
+  await expect(canvas).toHaveAttribute("data-grounded", "true");
+  await expect
+    .poll(async () =>
+      Math.abs(Number(await canvas.getAttribute("data-player-x")) - position),
+    )
+    .toBeLessThan(20);
+  await expect(page.locator(".coin-count")).toHaveText(coins);
+  for (const control of [
+    right,
+    jump,
+    page.getByRole("button", { name: "Exit", exact: true }),
+  ]) {
+    const box = (await control.boundingBox())!;
+    expect(box.y).toBeGreaterThanOrEqual(0);
+    expect(box.y + box.height).toBeLessThanOrEqual(390);
+    expect(box.width).toBeGreaterThanOrEqual(44);
+    expect(box.height).toBeGreaterThanOrEqual(44);
+  }
+  await page.screenshot({ path: "test-results/play-landscape.png" });
+  await page.getByRole("button", { name: "Pause adventure" }).tap();
+  await expect(right).toBeDisabled();
+  await page
+    .getByRole("button", { name: "Resume adventure", exact: true })
+    .last()
+    .tap();
+  await page.getByRole("button", { name: "Checkpoints", exact: true }).tap();
+  await page.getByRole("button", { name: "Clinzo360", exact: true }).tap();
+  await page.getByRole("button", { name: "Explore", exact: true }).tap();
+  const dialog = page.locator(".quest-dialog");
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toContainText("Solo project");
+  await page.screenshot({ path: "test-results/play-dialog-landscape.png" });
+  await dialog.getByRole("button", { name: "Close panel" }).tap();
+  expect(await page.evaluate(() => document.body.style.overflow)).toBe(
+    "hidden",
+  );
+  await page.getByRole("button", { name: "Exit", exact: true }).tap();
+  await expect(canvas).toHaveCount(0);
+  await expect(start).toBeFocused();
+  expect(await page.evaluate(() => document.body.style.overflow)).not.toBe(
+    "hidden",
+  );
+  expect(
+    await page.evaluate(
+      () => document.querySelector<HTMLElement>("#quick-portfolio")!.inert,
+    ),
+  ).toBe(false);
+  // Rotation changes page geometry; scroll restoration is checked separately below.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await start.scrollIntoViewIfNeeded();
+  const restartScroll = await page.evaluate(() => scrollY);
+  await start.tap();
+  await expect(canvas).toHaveAttribute("data-grounded", "true");
+  await page.getByRole("button", { name: "Exit", exact: true }).tap();
+  expect(
+    Math.abs((await page.evaluate(() => scrollY)) - restartScroll),
+  ).toBeLessThan(3);
+  expect(scroll).toBeGreaterThanOrEqual(0);
+  await context.close();
+});
+
+test("mobile failure exits play view and preserves static access without JavaScript", async ({
+  browser,
+  baseURL,
+}) => {
+  const context = await browser.newContext({
+    baseURL,
+    viewport: { width: 390, height: 844 },
+  });
+  const page = await context.newPage();
+  await page.route("**/assets/world-background.webp", (route) => route.abort());
+  await page.goto("/");
+  await page.getByRole("button", { name: "Play mini game" }).click();
+  await expect(page.locator(".game-error")).toBeVisible();
+  await expect(page.locator(".mobile-play")).toHaveCount(0);
+  expect(await page.evaluate(() => document.body.style.overflow)).not.toBe(
+    "hidden",
+  );
+  await context.close();
+  const staticContext = await browser.newContext({
+    baseURL,
+    viewport: { width: 320, height: 640 },
+    javaScriptEnabled: false,
+  });
+  const staticPage = await staticContext.newPage();
+  await staticPage.goto("/");
+  await staticPage.locator(".mobile-menu summary").click();
+  await staticPage
+    .locator(".mobile-menu")
+    .getByRole("link", { name: "Projects" })
+    .click();
+  await staticPage.locator(".project-card.clinzo360").click();
+  await expect(staticPage.getByRole("heading", { level: 1 })).toHaveText(
+    "Clinzo360",
+  );
+  await staticContext.close();
+});
+
+test("thumb pad slides between directions, cancels cleanly, and fits small phones", async ({
+  browser,
+  baseURL,
+}) => {
+  const context = await browser.newContext({
+    baseURL,
+    viewport: { width: 320, height: 640 },
+    hasTouch: true,
+    isMobile: true,
+  });
+  const page = await context.newPage();
+  await page.goto("/");
+  await page.getByRole("button", { name: "Play mini game" }).tap();
+  const canvas = page.locator("canvas");
+  await expect(canvas).toHaveAttribute("data-grounded", "true");
+  const left = page.getByRole("button", { name: "left in game" });
+  const right = page.getByRole("button", { name: "right in game" });
+  const jump = page.getByRole("button", { name: "jump in game" });
+  for (const control of [left, right, jump]) {
+    const bounds = (await control.boundingBox())!;
+    expect(bounds.width).toBeGreaterThanOrEqual(64);
+    expect(bounds.height).toBeGreaterThanOrEqual(64);
+    expect(bounds.x).toBeGreaterThanOrEqual(0);
+    expect(bounds.x + bounds.width).toBeLessThanOrEqual(320);
+    expect(bounds.y + bounds.height).toBeLessThanOrEqual(640);
+  }
+  const cdp = await context.newCDPSession(page);
+  const point = async (control: Locator) => {
+    const bounds = (await control.boundingBox())!;
+    return {
+      id: 1,
+      x: bounds.x + bounds.width / 2,
+      y: bounds.y + bounds.height / 2,
+    };
+  };
+  const startX = Number(await canvas.getAttribute("data-player-x"));
+  await cdp.send("Input.dispatchTouchEvent", {
+    type: "touchStart",
+    touchPoints: [await point(right)],
+  });
+  await expect(right).toHaveAttribute("data-active", "true");
+  await expect
+    .poll(async () => Number(await canvas.getAttribute("data-player-x")))
+    .toBeGreaterThan(startX + 65);
+  const turnX = Number(await canvas.getAttribute("data-player-x"));
+  await cdp.send("Input.dispatchTouchEvent", {
+    type: "touchMove",
+    touchPoints: [await point(left)],
+  });
+  await expect(left).toHaveAttribute("data-active", "true");
+  await expect(right).toHaveAttribute("data-active", "false");
+  await expect
+    .poll(async () => Number(await canvas.getAttribute("data-player-x")))
+    .toBeLessThan(turnX - 35);
+  await cdp.send("Input.dispatchTouchEvent", {
+    type: "touchCancel",
+    touchPoints: [],
+  });
+  await expect(left).toHaveAttribute("data-active", "false");
+  const stoppedX = Number(await canvas.getAttribute("data-player-x"));
+  await page.evaluate(async () => {
+    for (let i = 0; i < 12; i++) await new Promise(requestAnimationFrame);
+  });
+  expect(
+    Math.abs(Number(await canvas.getAttribute("data-player-x")) - stoppedX),
+  ).toBeLessThan(10);
+  await jump.tap();
+  await expect(canvas).toHaveAttribute("data-grounded", "false");
+  await expect(canvas).toHaveAttribute("data-grounded", "true");
+  await page.screenshot({ path: "test-results/play-small-phone.png" });
+  await context.close();
 });

@@ -50,11 +50,26 @@ export default function QuestGame({
     } catch {
       onError();
     }
+    // Browser chrome and orientation changes can resize the CSS viewport without
+    // a reliable window resize event. Observe the actual canvas host instead.
+    const resize = new ResizeObserver(() => {
+      if (!game?.isBooted) return;
+      const width = element.clientWidth;
+      const height = element.clientHeight;
+      if (
+        width > 0 &&
+        height > 0 &&
+        (game.scale.width !== width || game.scale.height !== height)
+      )
+        game.scale.resize(width, height);
+    });
+    resize.observe(element);
     const resetKeys = () => {
       scene.input?.keyboard?.resetKeys();
     };
     element.addEventListener("blur", resetKeys);
     return () => {
+      resize.disconnect();
       element.removeEventListener("blur", resetKeys);
       game?.destroy(true);
     };

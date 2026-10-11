@@ -7,6 +7,7 @@ import { ArrowUpRight, X } from "lucide-react";
 import {
   checkpoints,
   configuredLink,
+  contentLabels,
   experience,
   profile,
   projects,
@@ -14,6 +15,7 @@ import {
   type CheckpointId,
 } from "@/data/portfolio";
 import { ContactLinks } from "@/components/portfolio/ContactLinks";
+import { lockPageScroll } from "@/lib/scroll-lock";
 
 export function QuestPanel({
   id,
@@ -30,13 +32,12 @@ export function QuestPanel({
   useEffect(() => {
     const element = dialog.current;
     const previous = document.activeElement as HTMLElement | null;
-    const previousOverflow = document.body.style.overflow;
+    const unlock = lockPageScroll();
     element?.showModal();
     // Focus the dialog itself rather than a control inside it. Opening the panel
     // with Enter would otherwise hand that same keystroke to an auto-focused
     // button, activating it and closing the panel the instant it appeared.
     element?.focus({ preventScroll: true });
-    document.body.style.overflow = "hidden";
     // A native modal already blocks the page behind it, but Chrome still parks
     // focus on <body> for one stop when tabbing past the last control. Wrap
     // explicitly so every Tab lands on something actionable.
@@ -62,7 +63,7 @@ export function QuestPanel({
     return () => {
       element?.removeEventListener("keydown", onKeyDown);
       element?.close();
-      document.body.style.overflow = previousOverflow;
+      unlock();
       previous?.focus({ preventScroll: true });
     };
   }, []);
@@ -170,9 +171,8 @@ export function QuestPanel({
                     className="disabled-link"
                     key={label}
                     aria-disabled="true"
-                    title={value}
                   >
-                    {label} · coming soon
+                    {label} · {contentLabels.unavailableLink}
                   </span>
                 ),
               )}
